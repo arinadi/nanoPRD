@@ -124,6 +124,49 @@ major level. For projects large enough to need grouping, use a directory
 
 ## Install
 
+### Fastest: hand this to your agent
+
+Already have an agent session open? Paste this and it will work out the right path
+for whichever tool it's running in:
+
+```text
+Install the nanoPRD planning skill from https://github.com/arinadi/nanoPRD
+
+Important: the repo root is NOT the skill. The skill lives at skills/nanoprd/.
+Cloning the repo directly into a skills directory installs a broken skill.
+
+1. Work out which agent you are. Check for ~/.claude, ~/.config/opencode,
+   .cursor, .codex, .windsurf, or .gemini.
+
+2. If you are Claude Code, use the plugin marketplace — it handles updates:
+       claude plugin marketplace add arinadi/nanoPRD
+       claude plugin install nanoprd@nanoprd
+   Then skip to step 4.
+
+3. Otherwise, clone once and install the skill directory only:
+       git clone --depth 1 https://github.com/arinadi/nanoPRD.git ~/src/nanoPRD
+   Ask me whether I want it global (all projects) or project-local. Then link
+   ~/src/nanoPRD/skills/nanoprd into my agent's skills directory as 'nanoprd'.
+   The repo ships install.sh which does this for ~/.claude/skills — prefer it if
+   my agent reads that path. On Windows without Developer Mode, copy instead of
+   symlinking, and tell me updates will need a re-run.
+
+4. Verify: <skills dir>/nanoprd/SKILL.md must exist, and its frontmatter `name:`
+   must read exactly `nanoprd`. If the folder name and that field disagree, the
+   skill silently never loads.
+
+Report which path you took and where it landed. Do not touch my other skills.
+```
+
+Already inside Claude Code? Two lines is enough:
+
+```
+/plugin marketplace add arinadi/nanoPRD
+/plugin install nanoprd@nanoprd
+```
+
+---
+
 ### Claude Code — in a session
 
 ```
