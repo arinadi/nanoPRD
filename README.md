@@ -270,10 +270,16 @@ body syntax, so the same files work in all three targets without modification.
 
 ```bash
 claude plugin validate .          # marketplace.json and plugin.json
-claude plugin validate ./skills   # frontmatter of every SKILL.md
 ```
 
-Both run in CI on every push. Before opening a PR, also test that the skill
+Note: `claude plugin validate ./skills` does **not** work on current CLI versions.
+It treats the target as a plugin root and fails with `No manifest found in
+directory`, because `skills/` has no `.claude-plugin/` — by design. Older versions
+accepted it as a components directory. SKILL.md frontmatter is validated by the
+`structure` CI job instead, which checks the folder/name match, the six spec
+fields, and Claude Code-only body syntax — more thoroughly than the CLI did.
+
+Both CI jobs run on every push and both are hard gates. Before opening a PR, also test that the skill
 actually triggers: open a **fresh** session and send two or three prompts you would
 realistically type. Leftover context from editing a skill masks gaps in what it
 actually says.

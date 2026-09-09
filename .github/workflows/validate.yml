@@ -214,15 +214,13 @@ jobs:
           fi
           echo "ok   install.sh: executable and syntactically valid"
 
-  # Soft-fail on purpose. It is not yet confirmed whether `claude plugin validate`
-  # needs authentication when run in CI; if it does, this job would fail for a
-  # reason that has nothing to do with the repo contents. The "structure" job
-  # above is the authoritative gate until that question is settled. Once we know
-  # this runs unauthenticated, drop continue-on-error and make it a real gate.
+  # Validates the marketplace and plugin manifests in .claude-plugin/ with the
+  # official CLI. It runs unauthenticated: run 34330603480 confirmed the command
+  # returns a real validation result in CI with no credentials, so this is a hard
+  # gate, not advisory. SKILL.md contents are covered by the structure job above.
   plugin-validate:
-    name: claude plugin validate (advisory)
+    name: claude plugin validate
     runs-on: ubuntu-latest
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
 
@@ -236,6 +234,3 @@ jobs:
 
       - name: Validate plugin at repo root
         run: claude plugin validate .
-
-      - name: Validate skills directory
-        run: claude plugin validate ./skills
