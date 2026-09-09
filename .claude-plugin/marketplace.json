@@ -1,0 +1,16 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "nanoprd",
+  "owner": {
+    "name": "Arinadi Rohmad"
+  },
+  "description": "Planning skills that turn an idea into an executable plan. Portable across Claude Code and OpenCode.",
+  "plugins": [
+    {
+      "name": "nanoprd",
+      "source": "./",
+      "description": "Five-phase planning workflow with a hard approval gate between phases. Produces context, PRD, architecture, nanotasks, and a coding-agent handoff.",
+      "category": "productivity"
+    }
+  ]
+}

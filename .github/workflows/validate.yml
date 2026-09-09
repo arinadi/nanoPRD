@@ -1,0 +1,241 @@
+# Guards this Agent Skills repo against the failures that are silent at author
+# time and only show up in the user's agent: a skill folder whose name does not
+# match its frontmatter (skill never loads), non-spec frontmatter keys (hard
+# reject on claude.ai upload), Claude-Code-only body syntax (no-op in OpenCode
+# and claude.ai), oversized SKILL.md, missing SKILL.md, malformed plugin
+# manifests, unsafe marketplace sources, and a broken install.sh.
+name: validate
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  structure:
+    name: Structure and spec checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Skill folder name matches frontmatter name
+        run: |
+          python3 <<'PY'
+          import pathlib, sys
+          fail = False
+          for d in sorted(pathlib.Path("skills").iterdir()):
+              if not d.is_dir():
+                  continue
+              skill = d / "SKILL.md"
+              if not skill.is_file():
+                  continue  # reported by the "Every skill has a SKILL.md" step
+              lines = skill.read_text(encoding="utf-8").splitlines()
+              if not lines or lines[0].strip() != "---":
+                  print(f"FAIL {skill}: no frontmatter block (first line is not '---')")
+                  fail = True
+                  continue
+              name = None
+              for line in lines[1:]:
+                  if line.strip() == "---":
+                      break
+                  if line.startswith("name:"):
+                      name = line.split(":", 1)[1].strip().strip("'\"")
+                      break
+              if name is None:
+                  print(f"FAIL {skill}: frontmatter has no top-level 'name:' field")
+                  fail = True
+              elif name != d.name:
+                  print(f"FAIL {skill}: frontmatter name '{name}' != folder name '{d.name}'. "
+                        f"The skill will silently never load.")
+                  fail = True
+              else:
+                  print(f"ok   {skill}: name '{name}' matches folder")
+          sys.exit(1 if fail else 0)
+          PY
+
+      - name: Only spec frontmatter fields
+        run: |
+          python3 <<'PY'
+          import pathlib, sys
+          ALLOWED = {"name", "description", "license", "compatibility", "metadata", "allowed-tools"}
+          fail = False
+          for skill in sorted(pathlib.Path("skills").rglob("SKILL.md")):
+              lines = skill.read_text(encoding="utf-8").splitlines()
+              if not lines or lines[0].strip() != "---":
+                  print(f"FAIL {skill}: no frontmatter block (first line is not '---')")
+                  fail = True
+                  continue
+              closed = False
+              bad = False
+              for n, line in enumerate(lines[1:], start=2):
+                  if line.strip() == "---":
+                      closed = True
+                      break
+                  # top level only: nested keys under metadata are indented
+                  if not line or line[0] in " \t#" or ":" not in line:
+                      continue
+                  key = line.split(":", 1)[0].strip()
+                  if key and key not in ALLOWED:
+                      print(f"FAIL {skill}:{n}: non-spec frontmatter key '{key}'. "
+                            f"Allowed: {', '.join(sorted(ALLOWED))}. "
+                            f"claude.ai rejects the upload on any other key.")
+                      fail = bad = True
+              if not closed:
+                  print(f"FAIL {skill}: frontmatter block is never closed with '---'")
+                  fail = bad = True
+              if not bad:
+                  print(f"ok   {skill}: frontmatter keys are all in spec")
+          sys.exit(1 if fail else 0)
+          PY
+
+      - name: No Claude Code only body syntax
+        run: |
+          python3 <<'PY'
+          import pathlib, re, sys
+          # Literal markers, plus the shell-injection form !`cmd` which is Claude
+          # Code only. Plain backticks are ordinary markdown and are not flagged.
+          PATTERNS = [
+              ("$ARGUMENTS", re.compile(r"\$ARGUMENTS")),
+              ("${CLAUDE_SKILL_DIR}", re.compile(r"\$\{CLAUDE_SKILL_DIR\}")),
+              ("${CLAUDE_PLUGIN_ROOT}", re.compile(r"\$\{CLAUDE_PLUGIN_ROOT\}")),
+              ("shell injection !`...`", re.compile(r"!`[^`\n]+`")),
+          ]
+          fail = False
+          for skill in sorted(pathlib.Path("skills").rglob("SKILL.md")):
+              hit = False
+              for n, line in enumerate(skill.read_text(encoding="utf-8").splitlines(), start=1):
+                  for label, rx in PATTERNS:
+                      if rx.search(line):
+                          print(f"FAIL {skill}:{n}: contains {label}, which is a no-op in "
+                                f"OpenCode and claude.ai. Line: {line.strip()[:120]}")
+                          fail = True
+                          hit = True
+              if not hit:
+                  print(f"ok   {skill}: no Claude-Code-only syntax")
+          sys.exit(1 if fail else 0)
+          PY
+
+      - name: SKILL.md under 500 lines
+        run: |
+          python3 <<'PY'
+          import pathlib, sys
+          fail = False
+          for skill in sorted(pathlib.Path("skills").rglob("SKILL.md")):
+              n = len(skill.read_text(encoding="utf-8").splitlines())
+              if n >= 500:
+                  print(f"FAIL {skill}: {n} lines, limit is under 500. Move detail into references/.")
+                  fail = True
+              else:
+                  print(f"ok   {skill}: {n} lines")
+          sys.exit(1 if fail else 0)
+          PY
+
+      - name: Every skill has a SKILL.md
+        run: |
+          python3 <<'PY'
+          import pathlib, sys
+          fail = False
+          root = pathlib.Path("skills")
+          if not root.is_dir():
+              print("FAIL skills/: directory does not exist")
+              sys.exit(1)
+          for d in sorted(p for p in root.iterdir() if p.is_dir()):
+              if (d / "SKILL.md").is_file():
+                  print(f"ok   {d}: has SKILL.md")
+              else:
+                  print(f"FAIL {d}: no SKILL.md. A skill directory without one never loads.")
+                  fail = True
+          sys.exit(1 if fail else 0)
+          PY
+
+      - name: JSON manifests parse
+        run: |
+          python3 <<'PY'
+          import json, pathlib, sys
+          fail = False
+          for p in ["./.claude-plugin/plugin.json", "./.claude-plugin/marketplace.json"]:
+              f = pathlib.Path(p)
+              if not f.is_file():
+                  print(f"FAIL {p}: file is missing")
+                  fail = True
+                  continue
+              try:
+                  json.loads(f.read_text(encoding="utf-8"))
+                  print(f"ok   {p}: valid JSON")
+              except json.JSONDecodeError as e:
+                  print(f"FAIL {p}: JSON parse error at line {e.lineno} column {e.colno}: {e.msg}")
+                  fail = True
+          sys.exit(1 if fail else 0)
+          PY
+
+      - name: Marketplace sources are relative and safe
+        run: |
+          python3 <<'PY'
+          import json, pathlib, sys
+          p = "./.claude-plugin/marketplace.json"
+          data = json.loads(pathlib.Path(p).read_text(encoding="utf-8"))
+          fail = False
+          plugins = data.get("plugins", [])
+          if not plugins:
+              print(f"FAIL {p}: no plugins listed")
+              sys.exit(1)
+          for plugin in plugins:
+              name = plugin.get("name", "<unnamed>")
+              src = plugin.get("source")
+              if not isinstance(src, str):
+                  print(f"FAIL {p}: plugin '{name}' source is {type(src).__name__}, "
+                        f"expected a relative path string starting with './'")
+                  fail = True
+                  continue
+              if not src.startswith("./"):
+                  print(f"FAIL {p}: plugin '{name}' source '{src}' does not start with './'")
+                  fail = True
+              if ".." in src:
+                  print(f"FAIL {p}: plugin '{name}' source '{src}' contains '..' and escapes the repo")
+                  fail = True
+              if src.startswith("./") and ".." not in src:
+                  print(f"ok   {p}: plugin '{name}' source '{src}'")
+          sys.exit(1 if fail else 0)
+          PY
+
+      - name: install.sh is executable and parses
+        run: |
+          if [ ! -f install.sh ]; then
+            echo "FAIL install.sh: file is missing"
+            exit 1
+          fi
+          if [ ! -x install.sh ]; then
+            echo "FAIL install.sh: not executable. Fix with: git update-index --chmod=+x install.sh"
+            exit 1
+          fi
+          if ! bash -n install.sh; then
+            echo "FAIL install.sh: bash -n reported a syntax error (see above)"
+            exit 1
+          fi
+          echo "ok   install.sh: executable and syntactically valid"
+
+  # Soft-fail on purpose. It is not yet confirmed whether `claude plugin validate`
+  # needs authentication when run in CI; if it does, this job would fail for a
+  # reason that has nothing to do with the repo contents. The "structure" job
+  # above is the authoritative gate until that question is settled. Once we know
+  # this runs unauthenticated, drop continue-on-error and make it a real gate.
+  plugin-validate:
+    name: claude plugin validate (advisory)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Claude Code CLI
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: Validate plugin at repo root
+        run: claude plugin validate .
+
+      - name: Validate skills directory
+        run: claude plugin validate ./skills

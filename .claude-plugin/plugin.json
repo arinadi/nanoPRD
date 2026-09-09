@@ -1,0 +1,9 @@
+{
+  "name": "nanoprd",
+  "description": "Turn a product idea into nanotasks a coding agent can implement one at a time. Five gated phases: context, PRD, architecture, decomposition, handoff.",
+  "author": {
+    "name": "Arinadi Rohmad"
+  },
+  "homepage": "https://github.com/arinadi/nanoPRD",
+  "license": "MIT"
+}

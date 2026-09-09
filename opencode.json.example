@@ -1,0 +1,28 @@
+// Copy the relevant parts into ~/.config/opencode/opencode.json
+// (global) or ./opencode.json (per project).
+//
+// `skills` entries from every discovered config are additive - they add to each
+// other rather than overriding. Relative paths resolve against OpenCode's active
+// working directory, not against this file's location, so prefer absolute or
+// ~-prefixed paths.
+//
+// Requires OpenCode v1.0.190 or later for native skill support.
+{
+  "$schema": "https://opencode.ai/config.json",
+
+  // Point at the skills directory of your clone.
+  "skills": ["~/src/nanoPRD/skills"],
+
+  // OpenCode V2 permission syntax.
+  "permissions": [
+    { "action": "skill", "resource": "nanoprd", "effect": "allow" }
+  ]
+
+  // OpenCode V1 uses a different shape. If you are on V1, replace the
+  // "permissions" array above with:
+  //
+  //   "permission": { "skill": { "*": "ask", "nanoprd": "allow" } }
+  //
+  // On V2 the skill ID comes from the directory name, not the frontmatter
+  // `name` field. The directory is `skills/nanoprd`, so the ID is `nanoprd`.
+}

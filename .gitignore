@@ -1,0 +1,7 @@
+.DS_Store
+Thumbs.db
+*.swp
+node_modules/
+
+# Plans produced by running the skill, if anyone runs it inside this repo.
+*_plan/

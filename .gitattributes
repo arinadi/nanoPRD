@@ -1,0 +1,8 @@
+# Shell scripts must keep LF endings. A CRLF install.sh fails on Linux and macOS
+# with "bad interpreter: /usr/bin/env bash^M", which is an obscure way to learn
+# that the repo was committed from Windows.
+*.sh text eol=lf
+
+*.md   text
+*.json text
+*.yml  text
